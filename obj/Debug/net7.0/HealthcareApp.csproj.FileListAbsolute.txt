@@ -1,0 +1,4 @@
+C:\Users\PC\Desktop\dcit318-assignment3-11347275\-dcit318-assignment3-11347275\obj\Debug\net7.0\HealthcareApp.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\PC\Desktop\dcit318-assignment3-11347275\-dcit318-assignment3-11347275\obj\Debug\net7.0\HealthcareApp.AssemblyInfoInputs.cache
+C:\Users\PC\Desktop\dcit318-assignment3-11347275\-dcit318-assignment3-11347275\obj\Debug\net7.0\HealthcareApp.AssemblyInfo.cs
+C:\Users\PC\Desktop\dcit318-assignment3-11347275\-dcit318-assignment3-11347275\obj\Debug\net7.0\HealthcareApp.csproj.CoreCompileInputs.cache

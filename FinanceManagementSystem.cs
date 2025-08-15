@@ -1,148 +1,164 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
-namespace FinanceManagementSystem
+namespace HealthcareSystem
 {
-    // a) Record: immutable financial data model
-    public readonly record struct Transaction(
-        int Id,
-        DateTime Date,
-        decimal Amount,
-        string Category
-    );
-
-    // b) Payment behavior via interface
-    public interface ITransactionProcessor
+    // a) Generic Repository for Entity Management
+    public class Repository<T>
     {
-        void Process(Transaction transaction);
-    }
-
-    // c) Concrete processors with distinct messaging
-    public class BankTransferProcessor : ITransactionProcessor
-    {
-        public void Process(Transaction transaction)
+        private readonly List<T> _items = new();
+        
+        public void Add(T item) => _items.Add(item);
+        
+        public List<T> GetAll() => new(_items);
+        
+        public T? GetById(Func<T, bool> predicate) => _items.FirstOrDefault(predicate);
+        
+        public bool Remove(Func<T, bool> predicate)
         {
-            Console.WriteLine($"[BankTransfer] Processing {transaction.Category} for {transaction.Amount:C} on {transaction.Date:d}.");
-        }
-    }
-
-    public class MobileMoneyProcessor : ITransactionProcessor
-    {
-        public void Process(Transaction transaction)
-        {
-            Console.WriteLine($"[MobileMoney] Sent {transaction.Amount:C} for {transaction.Category} on {transaction.Date:d}.");
-        }
-    }
-
-    public class CryptoWalletProcessor : ITransactionProcessor
-    {
-        public void Process(Transaction transaction)
-        {
-            Console.WriteLine($"[CryptoWallet] Broadcast payment of {transaction.Amount:C} ({transaction.Category}) on {transaction.Date:d}.");
-        }
-    }
-
-    // d) General account
-    public class Account
-    {
-        public string AccountNumber { get; }
-        public decimal Balance { get; protected set; }
-
-        public Account(string accountNumber, decimal initialBalance)
-        {
-            if (string.IsNullOrWhiteSpace(accountNumber))
-                throw new ArgumentException("Account number is required.", nameof(accountNumber));
-            if (initialBalance < 0)
-                throw new ArgumentOutOfRangeException(nameof(initialBalance), "Initial balance cannot be negative.");
-
-            AccountNumber = accountNumber;
-            Balance = initialBalance;
-        }
-
-        protected static void Validate(Transaction transaction)
-        {
-            if (transaction.Amount <= 0)
-                throw new ArgumentOutOfRangeException(nameof(transaction.Amount), "Amount must be positive.");
-            if (string.IsNullOrWhiteSpace(transaction.Category))
-                throw new ArgumentException("Category is required.", nameof(transaction.Category));
-            // (Optional) Add further integrity checks here (e.g., future-dated rules).
-        }
-
-        // Deducts the amount (default behavior)
-        public virtual void ApplyTransaction(Transaction transaction)
-        {
-            Validate(transaction);
-            Balance -= transaction.Amount;
-            Console.WriteLine($"[Account:{AccountNumber}] Applied {transaction.Amount:C} for {transaction.Category}. New balance: {Balance:C}");
-        }
-    }
-
-    // e) Sealed specialized account
-    public sealed class SavingsAccount : Account
-    {
-        public SavingsAccount(string accountNumber, decimal initialBalance)
-            : base(accountNumber, initialBalance) { }
-
-        public override void ApplyTransaction(Transaction transaction)
-        {
-            Validate(transaction);
-
-            if (transaction.Amount > Balance)
+            var item = _items.FirstOrDefault(predicate);
+            if (item != null)
             {
-                Console.WriteLine("Insufficient funds");
+                _items.Remove(item);
+                return true;
+            }
+            return false;
+        }
+    }
+
+    // b) Patient class
+    public class Patient
+    {
+        public int Id { get; }
+        public string Name { get; }
+        public int Age { get; }
+        public string Gender { get; }
+
+        public Patient(int id, string name, int age, string gender)
+        {
+            Id = id;
+            Name = name;
+            Age = age;
+            Gender = gender;
+        }
+
+        public override string ToString() => 
+            $"[Patient] ID: {Id}, Name: {Name}, Age: {Age}, Gender: {Gender}";
+    }
+
+    // c) Prescription class
+    public class Prescription
+    {
+        public int Id { get; }
+        public int PatientId { get; }
+        public string MedicationName { get; }
+        public DateTime DateIssued { get; }
+
+        public Prescription(int id, int patientId, string medicationName, DateTime dateIssued)
+        {
+            Id = id;
+            PatientId = patientId;
+            MedicationName = medicationName;
+            DateIssued = dateIssued;
+        }
+
+        public override string ToString() => 
+            $"[Prescription] ID: {Id}, PatientID: {PatientId}, Medication: {MedicationName}, Date: {DateIssued:d}";
+    }
+
+    // Main Healthcare System Application
+    public class Program
+    {
+        private readonly Repository<Patient> _patientRepo = new();
+        private readonly Repository<Prescription> _prescriptionRepo = new();
+        private Dictionary<int, List<Prescription>> _prescriptionMap = new();
+
+        // Seed sample data
+        public void SeedData()
+        {
+            // Add patients
+            _patientRepo.Add(new Patient(1, "John Doe", 34, "Male"));
+            _patientRepo.Add(new Patient(2, "Jane Smith", 28, "Female"));
+            _patientRepo.Add(new Patient(3, "Kwame Mensah", 45, "Male"));
+
+            // Add prescriptions
+            _prescriptionRepo.Add(new Prescription(1, 1, "Amoxicillin", DateTime.Today.AddDays(-5)));
+            _prescriptionRepo.Add(new Prescription(2, 1, "Paracetamol", DateTime.Today.AddDays(-2)));
+            _prescriptionRepo.Add(new Prescription(3, 2, "Ibuprofen", DateTime.Today.AddDays(-10)));
+            _prescriptionRepo.Add(new Prescription(4, 3, "Metformin", DateTime.Today.AddDays(-1)));
+            _prescriptionRepo.Add(new Prescription(5, 2, "Lisinopril", DateTime.Today));
+        }
+
+        // Build dictionary mapping PatientId -> prescriptions
+        public void BuildPrescriptionMap()
+        {
+            _prescriptionMap = _prescriptionRepo
+                .GetAll()
+                .GroupBy(p => p.PatientId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+
+        public void PrintAllPatients()
+        {
+            Console.WriteLine("\n--- Patients ---");
+            foreach (var patient in _patientRepo.GetAll())
+            {
+                Console.WriteLine(patient);
+            }
+        }
+
+        public List<Prescription> GetPrescriptionsByPatientId(int patientId)
+        {
+            return _prescriptionMap.ContainsKey(patientId) 
+                ? _prescriptionMap[patientId] 
+                : new List<Prescription>();
+        }
+
+        public void PrintPrescriptionsForPatient(int patientId)
+        {
+            var prescriptions = GetPrescriptionsByPatientId(patientId);
+
+            if (prescriptions.Count == 0)
+            {
+                Console.WriteLine($"No prescriptions found for patient ID {patientId}.");
                 return;
             }
 
-            Balance -= transaction.Amount;
-            Console.WriteLine($"[Savings:{AccountNumber}] Deducted {transaction.Amount:C} ({transaction.Category}). Balance: {Balance:C}");
+            Console.WriteLine($"\n--- Prescriptions for Patient ID {patientId} ---");
+            foreach (var pres in prescriptions)
+            {
+                Console.WriteLine(pres);
+            }
         }
-    }
-
-    // f) Integration & simulation
-    public class FinanceApp
-    {
-        private readonly List<Transaction> _transactions = new();
 
         public void Run()
         {
-            // i) Savings account
-            var savings = new SavingsAccount("SA-001", initialBalance: 1000m);
-            Console.WriteLine($"Created SavingsAccount {savings.AccountNumber} with balance {savings.Balance:C}");
-
-            // ii) Sample transactions
-            var t1 = new Transaction(1, DateTime.Today, 120.50m, "Groceries");
-            var t2 = new Transaction(2, DateTime.Today, 300m, "Utilities");
-            var t3 = new Transaction(3, DateTime.Today, 700m, "Entertainment");
-
-            // iii) Processors
-            ITransactionProcessor p1 = new MobileMoneyProcessor();
-            ITransactionProcessor p2 = new BankTransferProcessor();
-            ITransactionProcessor p3 = new CryptoWalletProcessor();
-
-            p1.Process(t1);
-            p2.Process(t2);
-            p3.Process(t3);
-
-            // iv) Apply to account (with SavingsAccount rules)
-            savings.ApplyTransaction(t1);
-            savings.ApplyTransaction(t2);
-            savings.ApplyTransaction(t3);
-
-            // v) Track transactions
-            _transactions.AddRange(new[] { t1, t2, t3 });
-
-            Console.WriteLine("\n--- Transaction Log ---");
-            foreach (var tx in _transactions)
+            Console.WriteLine("Healthcare System - Patient Records & Prescriptions");
+            Console.WriteLine("==================================================");
+            
+            SeedData();
+            BuildPrescriptionMap();
+            
+            PrintAllPatients();
+            
+            // Display prescriptions for patient ID 1
+            PrintPrescriptionsForPatient(1);
+            
+            // Interactive mode
+            Console.Write("\nEnter Patient ID to view prescriptions (or 0 to exit): ");
+            while (int.TryParse(Console.ReadLine(), out int patientId) && patientId != 0)
             {
-                Console.WriteLine($"#{tx.Id}: {tx.Date:d} | {tx.Category,-13} | {tx.Amount,10:C}");
+                PrintPrescriptionsForPatient(patientId);
+                Console.Write("\nEnter another Patient ID (or 0 to exit): ");
             }
-
-            Console.WriteLine($"\nFinal Balance: {savings.Balance:C}");
+            
+            Console.WriteLine("Healthcare system closed.");
         }
 
-        public static void Main()
+        public static void Main(string[] args)
         {
-            new FinanceApp().Run();
+            new Program().Run();
         }
     }
 }
